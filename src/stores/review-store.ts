@@ -103,26 +103,6 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
       newCorrections = [...corrections, correction];
     }
 
-    // 동일 오류 일괄 적용 (실제 텍스트 수정인 경우만, null·원본 동일 제외)
-    if (correction.corrected !== null && correction.corrected !== correction.original) {
-      for (const seg of segments) {
-        for (let wi = 0; wi < seg.words.length; wi++) {
-          if (seg.index === correction.segmentIndex && wi === correction.wordIndex) continue;
-          if (seg.words[wi] !== correction.original) continue;
-          const alreadyExists = newCorrections.some(
-            (c) => c.segmentIndex === seg.index && c.wordIndex === wi
-          );
-          if (alreadyExists) continue;
-          newCorrections = [...newCorrections, {
-            segmentIndex: seg.index,
-            wordIndex: wi,
-            original: correction.original,
-            corrected: correction.corrected,
-          }];
-        }
-      }
-    }
-
     set({
       corrections: newCorrections,
       undoStack: [...undoStack, corrections],

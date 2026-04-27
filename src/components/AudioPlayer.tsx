@@ -126,17 +126,35 @@ export default function AudioPlayer() {
         </span>
 
         {/* 배속 조절 */}
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto">
           <span className="text-xs text-gray-400 flex-shrink-0">배속</span>
-          <select
+          <input
+            type="range"
+            min={0.25}
+            max={3.0}
+            step={0.05}
             value={playbackRate}
             onChange={(e) => setPlaybackRate(Number(e.target.value))}
-            className="text-xs font-medium text-blue-600 bg-gray-100 hover:bg-gray-200 rounded px-1.5 py-1 cursor-pointer border-none outline-none flex-shrink-0"
-          >
-            {[0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00].map((v) => (
-              <option key={v} value={v}>{v.toFixed(2)}x</option>
+            className="w-20 h-1 accent-blue-500 cursor-pointer"
+          />
+          <span className="text-xs font-medium text-blue-600 w-8 text-center tabular-nums flex-shrink-0">
+            {playbackRate.toFixed(2)}x
+          </span>
+          <div className="flex items-center gap-1 ml-1">
+            {[1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
+              <button
+                key={v}
+                onClick={() => setPlaybackRate(v)}
+                className={`text-xs px-1.5 py-0.5 rounded transition-colors flex-shrink-0 ${
+                  playbackRate === v
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+              >
+                {v % 1 === 0 ? `${v}.0` : v}x
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       </div>
     </div>
