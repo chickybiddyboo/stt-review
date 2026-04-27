@@ -2,6 +2,7 @@
 
 import { useReviewStore, wavesurferRef } from '@/stores/review-store';
 import { exportSrt, downloadSrt } from '@/lib/srt-exporter';
+import { downloadCorrectionReport } from '@/lib/docx-exporter';
 
 export default function CorrectionList() {
   const { corrections, segments, srtFileName, setActivePanel, removeCorrection, setActiveSegmentIndex } = useReviewStore();
@@ -25,6 +26,10 @@ export default function CorrectionList() {
   const handleSave = () => {
     const srt = exportSrt(segments, corrections);
     downloadSrt(srt, srtFileName);
+  };
+
+  const handleDownloadReport = () => {
+    downloadCorrectionReport(segments, corrections, srtFileName);
   };
 
   return (
@@ -99,10 +104,10 @@ export default function CorrectionList() {
         )}
       </div>
 
-      {/* 검수 내용 저장 */}
+      {/* 저장 버튼 */}
       <div className="px-4 py-3 border-t border-gray-200 flex-shrink-0">
         <button
-          onClick={(e) => { e.stopPropagation(); handleSave(); }}
+          onClick={(e) => { e.stopPropagation(); handleDownloadReport(); }}
           disabled={corrections.length === 0}
           className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
             corrections.length > 0
@@ -110,7 +115,7 @@ export default function CorrectionList() {
               : 'bg-gray-100 text-gray-300 cursor-not-allowed'
           }`}
         >
-          검수 내용 저장
+          검수한 스크립트 다운로드
         </button>
       </div>
     </div>
