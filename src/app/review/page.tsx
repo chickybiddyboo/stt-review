@@ -6,7 +6,6 @@ import { useReviewStore, wavesurferRef } from '@/stores/review-store';
 import ScriptPanel from '@/components/ScriptPanel';
 import CorrectionList from '@/components/CorrectionList';
 import AudioPlayer from '@/components/AudioPlayer';
-import { exportSrt, downloadSrt } from '@/lib/srt-exporter';
 
 export default function ReviewPage() {
   const router = useRouter();
@@ -134,8 +133,6 @@ export default function ReviewPage() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const handleDownload = () => downloadSrt(exportSrt(segments, corrections), srtFileName);
-
   if (!audioFile || segments.length === 0) return null;
 
   return (
@@ -147,12 +144,6 @@ export default function ReviewPage() {
           <span className="text-xs text-gray-400 truncate max-w-48">{audioFile.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleDownload}
-            className="text-sm px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
-          >
-            수정된 SRT 다운로드
-          </button>
         </div>
       </header>
 
