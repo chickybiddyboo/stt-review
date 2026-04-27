@@ -115,7 +115,7 @@ export default function CorrectionList() {
               : 'bg-gray-100 text-gray-300 cursor-not-allowed'
           }`}
         >
-          검수한 스크립트 다운로드
+          검수 내용 저장
         </button>
       </div>
     </div>
