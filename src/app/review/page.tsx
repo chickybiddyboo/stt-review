@@ -12,7 +12,7 @@ export default function ReviewPage() {
   const {
     segments,
     audioFile,
-    srtFileName,
+    audioFileName,
     corrections,
     isPlaying,
     resumePosition,
@@ -22,9 +22,11 @@ export default function ReviewPage() {
     selectedWord,
   } = useReviewStore();
 
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
+
   // 패널 너비 리사이즈
   const containerRef = useRef<HTMLDivElement>(null);
-  const [correctionPct, setCorrectionPct] = useState(30); // %
+  const [correctionPct, setCorrectionPct] = useState(30);
   const isDragging = useRef(false);
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -58,6 +60,16 @@ export default function ReviewPage() {
     if (!audioFile || segments.length === 0) router.replace('/');
   }, [audioFile, segments, router]);
 
+  // 뒤로가기/탭 닫기 시 경고
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -76,7 +88,6 @@ export default function ReviewPage() {
         if (isPlaying) {
           ws.pause();
         } else {
-          // 재생 시작 시 수정 입력창 닫기
           setSelectedWord(null);
           if (resumePosition !== null) {
             const dur = ws.getDuration();
@@ -94,7 +105,6 @@ export default function ReviewPage() {
         const { segments } = useReviewStore.getState();
         const cur = ws.getCurrentTime();
         const dur = ws.getDuration() || 1;
-        // 현재 세그먼트·어절 찾기
         let segIdx = segments.findIndex((s) => cur >= s.startTime && cur < s.endTime);
         if (segIdx === -1) segIdx = segments.findIndex((s) => cur < s.startTime);
         if (segIdx === -1) segIdx = segments.length - 1;
@@ -141,9 +151,21 @@ export default function ReviewPage() {
       <header className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0 bg-white z-10">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-gray-800">STT 스크립트 검수</h1>
-          <span className="text-xs text-gray-400 truncate max-w-48">{audioFile.name}</span>
+          <span className="text-xs text-gray-400 truncate max-w-48">{audioFileName || audioFile.name}</span>
+          {corrections.length > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+              {corrections.length}건 수정
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
+          {/* 새 파일 검수 버튼 */}
+          <button
+            onClick={() => setShowNewFileModal(true)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+          >
+            새 파일 검수
+          </button>
         </div>
       </header>
 
@@ -175,6 +197,40 @@ export default function ReviewPage() {
           <CorrectionList />
         </div>
       </div>
+
+      {/* 새 파일 검수 확인 모달 */}
+      {showNewFileModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setShowNewFileModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 shadow-2xl max-w-xs w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-gray-800 mb-1">새 파일 검수로 이동</p>
+            <p className="text-xs text-gray-400 mb-5">
+              현재 검수 내용은 자동 저장됩니다.
+              <br />
+              홈에서 이어하기로 돌아올 수 있어요.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { router.push('/'); setShowNewFileModal(false); }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+              >
+                이동
+              </button>
+              <button
+                onClick={() => setShowNewFileModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

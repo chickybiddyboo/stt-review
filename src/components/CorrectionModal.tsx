@@ -149,17 +149,18 @@ export default function CorrectionModal({
       reviewNote: note,
     });
     close(); // stopLoop → ws.pause() + setSelectedWord(null)
-    // 수정 저장 직후 오류 어절 시작부터 오디오 재생
+    // 수정 저장 직후 다음 어절부터 오디오 재생
     const ws = wavesurferRef.current;
     if (ws) {
       const dur = ws.getDuration();
       if (dur > 0) {
         const totalWords = segment.words.length;
+        const nextIdx = wordIndex + 1;
         let nextStartTime: number;
-        if (wordIndex < totalWords) {
+        if (nextIdx < totalWords) {
           nextStartTime = segment.wordTimings
-            ? segment.wordTimings[wordIndex].startTime
-            : estimateWordStartTime(segment.startTime, segment.endTime, wordIndex, totalWords);
+            ? segment.wordTimings[nextIdx].startTime
+            : estimateWordStartTime(segment.startTime, segment.endTime, nextIdx, totalWords);
         } else {
           nextStartTime = segment.endTime;
         }

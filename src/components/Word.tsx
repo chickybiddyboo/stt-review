@@ -1,8 +1,7 @@
 'use client';
 
-import { useReviewStore, wavesurferRef } from '@/stores/review-store';
+import { useReviewStore } from '@/stores/review-store';
 import { Correction } from '@/types';
-import { estimateWordStartTime } from '@/lib/time-utils';
 
 interface WordProps {
   segmentIndex: number;
@@ -21,31 +20,12 @@ export default function Word({
   isSelected,
   isActiveWord = false,
 }: WordProps) {
-  const { selectWord, setActivePanel, addCorrection } = useReviewStore();
+  const { selectWord, setActivePanel } = useReviewStore();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setActivePanel('script');
-
-    // 클릭한 어절 위치로 프로그레스 바 이동
-    const ws = wavesurferRef.current;
-    if (ws) {
-      const { segments } = useReviewStore.getState();
-      const seg = segments.find((s) => s.index === segmentIndex);
-      if (seg) {
-        const dur = ws.getDuration();
-        if (dur > 0) {
-          const wordTime = seg.wordTimings
-            ? seg.wordTimings[wordIndex].startTime
-            : estimateWordStartTime(seg.startTime, seg.endTime, wordIndex, seg.words.length);
-          ws.seekTo(wordTime / dur);
-        }
-      }
-    }
-
-    if (!correction) {
-      addCorrection({ segmentIndex, wordIndex, original: text, corrected: text });
-    }
+    // 클릭 시 수정 패널만 열림 — 오디오 이동 없음, 오류 등록은 저장 시점에만
     selectWord(segmentIndex, wordIndex);
   };
 
@@ -63,7 +43,7 @@ export default function Word({
   } else if (isCorrected) {
     boxStyle = 'bg-green-200 text-green-800';
   } else if (isDeleted) {
-    boxStyle = 'bg-red-200 text-red-800 line-through';
+    boxStyle = 'bg-green-200 text-green-800 line-through';
   } else if (isActiveWord) {
     boxStyle = 'bg-yellow-200 text-gray-900';
   } else {

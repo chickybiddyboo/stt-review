@@ -1,36 +1,30 @@
 'use client';
 
-import { useReviewStore, wavesurferRef } from '@/stores/review-store';
-import { exportSrt, downloadSrt } from '@/lib/srt-exporter';
+import { useState } from 'react';
+import { useReviewStore } from '@/stores/review-store';
 import { downloadCorrectionReport } from '@/lib/docx-exporter';
 
 export default function CorrectionList() {
   const { corrections, segments, srtFileName, setActivePanel, removeCorrection, setActiveSegmentIndex } = useReviewStore();
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
+  // C-6: 클릭 시 스크립트 스크롤만 — 오디오 이동 없음
   const handleCorrectionClick = (segmentIndex: number) => {
     const arrayIdx = segments.findIndex((s) => s.index === segmentIndex);
     if (arrayIdx === -1) return;
-
-    // 즉시 activeSegmentIndex 설정 → ScriptSegment의 scrollIntoView 트리거
     setActiveSegmentIndex(arrayIdx);
-
-    const segment = segments[arrayIdx];
-    const ws = wavesurferRef.current;
-    if (ws) {
-      const dur = ws.getDuration();
-      if (dur > 0) ws.seekTo(segment.startTime / dur);
-    }
     setActivePanel('corrections');
-  };
-
-  const handleSave = () => {
-    const srt = exportSrt(segments, corrections);
-    downloadSrt(srt, srtFileName);
   };
 
   const handleDownloadReport = () => {
     downloadCorrectionReport(segments, corrections, srtFileName);
   };
+
+  // C-7: 스크립트 순(segmentIndex → wordIndex) 정렬
+  const sortedCorrections = [...corrections].sort((a, b) => {
+    if (a.segmentIndex !== b.segmentIndex) return a.segmentIndex - b.segmentIndex;
+    return a.wordIndex - b.wordIndex;
+  });
 
   return (
     <div
@@ -47,7 +41,7 @@ export default function CorrectionList() {
 
       {/* 목록 */}
       <div className="flex-1 overflow-y-auto">
-        {corrections.length === 0 ? (
+        {sortedCorrections.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-gray-400 text-xs text-center px-4">
             수정 내역이 없습니다.
             <br />
@@ -55,7 +49,7 @@ export default function CorrectionList() {
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {corrections.map((c, i) => (
+            {sortedCorrections.map((c, i) => (
               <li
                 key={i}
                 className="group px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -65,8 +59,8 @@ export default function CorrectionList() {
                   <div className="flex-1 min-w-0">
                     {c.corrected === null ? (
                       <div className="text-sm">
-                        <span className="line-through text-red-400">{c.original}</span>
-                        <span className="text-xs text-red-500 ml-1">[삭제됨]</span>
+                        <span className="line-through text-gray-400">{c.original}</span>
+                        <span className="text-xs text-gray-500 ml-1">[삭제됨]</span>
                       </div>
                     ) : c.corrected === c.original ? (
                       <div className="text-sm text-gray-400">{c.original}</div>
@@ -107,7 +101,7 @@ export default function CorrectionList() {
       {/* 저장 버튼 */}
       <div className="px-4 py-3 border-t border-gray-200 flex-shrink-0">
         <button
-          onClick={(e) => { e.stopPropagation(); handleDownloadReport(); }}
+          onClick={(e) => { e.stopPropagation(); setShowSaveModal(true); }}
           disabled={corrections.length === 0}
           className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
             corrections.length > 0
@@ -118,6 +112,38 @@ export default function CorrectionList() {
           검수 내용 저장
         </button>
       </div>
+
+      {/* 저장 확인 모달 */}
+      {showSaveModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setShowSaveModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 shadow-2xl max-w-xs w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-gray-800 mb-1">검수 내용을 저장하시겠습니까?</p>
+            <p className="text-xs text-gray-400 mb-5">
+              {corrections.length}건의 수정 내역이 DOCX 파일로 저장됩니다.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { handleDownloadReport(); setShowSaveModal(false); }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+              >
+                저장합니다
+              </button>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
