@@ -94,10 +94,10 @@ export default function AudioPlayer() {
       {/* WaveSurfer 컨테이너 — 오디오 재생 전용 */}
       <div ref={containerRef} style={{ height: 0, overflow: 'hidden' }} />
 
-      {/* 프로그레스 바 — 세로 12px */}
+      {/* 프로그레스 바 — 세로 12px, 가로 256px */}
       <div
         className="relative bg-gray-200 rounded-full cursor-pointer mb-3 group"
-        style={{ height: 12 }}
+        style={{ height: 12, width: 256 }}
         onClick={handleSeek}
       >
         <div
@@ -162,13 +162,14 @@ export default function AudioPlayer() {
             </span>
           </div>
 
-          {/* 단축 버튼 행 — 1.0x 이상만 표시 */}
-          <div className="flex items-center gap-1">
+          {/* 단축 버튼 행 — 각 48×20px, 간격 4px */}
+          <div className="flex items-center" style={{ gap: 4 }}>
             {[1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
               <button
                 key={v}
                 onClick={() => setPlaybackRate(v)}
-                className={`flex-1 text-xs py-1 rounded-lg transition-colors ${
+                style={{ width: 48, height: 20 }}
+                className={`flex-shrink-0 text-xs rounded transition-colors ${
                   playbackRate === v
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
