@@ -141,8 +141,8 @@ export default function AudioPlayer() {
           {secondsToDisplayTime(currentTime)} / {secondsToDisplayTime(duration)}
         </span>
 
-        {/* 배속 조절 — flex-1 로 나머지 공간 전부 차지 (초록 박스 영역) */}
-        <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
+        {/* 배속 조절 — 고정 크기 340×52px */}
+        <div className="ml-auto flex-shrink-0 flex flex-col justify-between" style={{ width: 340, height: 52 }}>
 
           {/* 슬라이더 행 */}
           <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export default function AudioPlayer() {
             </span>
           </div>
 
-          {/* 단축 버튼 행 — 버튼이 전체 너비를 균등 분할 */}
+          {/* 단축 버튼 행 — 340px 너비를 7등분 */}
           <div className="flex items-center gap-1">
             {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
               <button
