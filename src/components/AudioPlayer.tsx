@@ -94,9 +94,10 @@ export default function AudioPlayer() {
       {/* WaveSurfer 컨테이너 — 오디오 재생 전용 */}
       <div ref={containerRef} style={{ height: 0, overflow: 'hidden' }} />
 
-      {/* 프로그레스 바 — 세로 두껍게 (클릭 정밀도 ↓) */}
+      {/* 프로그레스 바 — 세로 12px */}
       <div
-        className="relative h-4 bg-gray-200 rounded-full cursor-pointer mb-3 group"
+        className="relative bg-gray-200 rounded-full cursor-pointer mb-3 group"
+        style={{ height: 12 }}
         onClick={handleSeek}
       >
         <div
@@ -104,7 +105,7 @@ export default function AudioPlayer() {
           style={{ width: `${progress}%` }}
         />
         <div
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 bg-blue-600 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ left: `${progress}%` }}
         />
       </div>
@@ -161,9 +162,9 @@ export default function AudioPlayer() {
             </span>
           </div>
 
-          {/* 단축 버튼 행 — 340px 너비를 7등분 */}
+          {/* 단축 버튼 행 — 1.0x 이상만 표시 */}
           <div className="flex items-center gap-1">
-            {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
+            {[1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
               <button
                 key={v}
                 onClick={() => setPlaybackRate(v)}

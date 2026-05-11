@@ -24,13 +24,30 @@ export default function CorrectionModal({
   const reviewRef = useRef<HTMLTextAreaElement>(null);
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { addCorrection, setSelectedWord, setIsLooping, playbackRate, resumePosition, setResumePosition } = useReviewStore();
+  const {
+    addCorrection,
+    setSelectedWord,
+    setIsLooping,
+    playbackRate,
+    setResumePosition,
+    segments,
+    corrections,
+    duplicateFlow,
+    setDuplicateFlow,
+  } = useReviewStore();
 
-  const [value, setValue] = useState(currentCorrection ?? originalWord);
+  // 이 어절이 동일 오류 플로우의 대기 목록에 있는지 확인
+  const isInFlow = duplicateFlow?.pending.some(
+    (p) => p.segmentIndex === segmentIndex && p.wordIndex === wordIndex
+  ) ?? false;
+
+  // 사전 입력값: 이미 수정됐거나, 동일 오류 플로우의 제안값 사용
+  const suggestedValue = isInFlow ? (duplicateFlow?.suggestedCorrection ?? originalWord) : undefined;
+
+  const [value, setValue] = useState(currentCorrection ?? suggestedValue ?? originalWord);
   const [loopActive, setLoopActive] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
-  // 전역 오디오 플레이어와 독립된 로컬 배속 (재생·반복 구간에만 적용)
   const [localRate, setLocalRate] = useState(playbackRate);
 
   useEffect(() => {
@@ -39,43 +56,29 @@ export default function CorrectionModal({
   }, []);
 
   useEffect(() => {
-    if (showReview) {
-      reviewRef.current?.focus();
-    }
+    if (showReview) reviewRef.current?.focus();
   }, [showReview]);
 
   const getPlayRange = useCallback(() => {
     const totalWords = segment.words.length;
     const prevIndex = Math.max(0, wordIndex - 2);
-
-    // startTime: n-2 어절부터 (Whisper JSON: 정확한 타임스탬프 / SRT: 균등 추정)
     const startTime = segment.wordTimings
       ? segment.wordTimings[prevIndex].startTime
       : estimateWordStartTime(segment.startTime, segment.endTime, prevIndex, totalWords);
-
-    // endTime: 오류 어절 끝까지
     const endTime = segment.wordTimings
       ? segment.wordTimings[wordIndex].endTime
       : estimateWordEndTime(segment.startTime, segment.endTime, wordIndex, totalWords);
-
     return { startTime, endTime, duration: endTime - startTime };
   }, [segment, wordIndex]);
 
-  // 타이머만 정리 (ws.pause 없음 — play 직전 pause가 race condition 유발)
   const clearTimer = useCallback(() => {
-    if (loopTimerRef.current) {
-      clearTimeout(loopTimerRef.current);
-      loopTimerRef.current = null;
-    }
+    if (loopTimerRef.current) { clearTimeout(loopTimerRef.current); loopTimerRef.current = null; }
   }, []);
 
   const stopLoop = useCallback(() => {
     clearTimer();
     const ws = wavesurferRef.current;
-    if (ws) {
-      ws.pause();
-      ws.setPlaybackRate(playbackRate); // 전역 배속 복원
-    }
+    if (ws) { ws.pause(); ws.setPlaybackRate(playbackRate); }
     setLoopActive(false);
     setIsLooping(false);
   }, [clearTimer, setIsLooping, playbackRate]);
@@ -83,22 +86,18 @@ export default function CorrectionModal({
   const playOnce = useCallback(() => {
     const ws = wavesurferRef.current;
     if (!ws) return;
-
-    // 기존 타이머만 정리 (ws.pause() 호출 금지 — 직후 play와 충돌)
     clearTimer();
     setLoopActive(false);
     setIsLooping(false);
-
     const { startTime, duration } = getPlayRange();
     const dur = ws.getDuration();
     if (!dur || dur <= 0) return;
-
     ws.setPlaybackRate(localRate);
     ws.seekTo(startTime / dur);
     ws.play();
     loopTimerRef.current = setTimeout(() => {
       ws.pause();
-      ws.setPlaybackRate(playbackRate); // 전역 배속 복원
+      ws.setPlaybackRate(playbackRate);
     }, duration * 1000 / localRate);
   }, [clearTimer, setIsLooping, getPlayRange, localRate, playbackRate]);
 
@@ -107,12 +106,10 @@ export default function CorrectionModal({
     if (!ws) return;
     setLoopActive(true);
     setIsLooping(true);
-
     const playLoop = () => {
       const { startTime, duration } = getPlayRange();
       const dur = ws.getDuration();
       if (!dur || dur <= 0) return;
-
       ws.setPlaybackRate(localRate);
       ws.seekTo(startTime / dur);
       ws.play();
@@ -121,26 +118,38 @@ export default function CorrectionModal({
         loopTimerRef.current = setTimeout(playLoop, 300);
       }, duration * 1000 / localRate);
     };
-
     playLoop();
-  }, [getPlayRange, setIsLooping, localRate, playbackRate]);
+  }, [getPlayRange, setIsLooping, localRate]);
 
   const toggleLoop = useCallback(() => {
     loopActive ? stopLoop() : startLoop();
   }, [loopActive, startLoop, stopLoop]);
 
-  const close = useCallback(() => {
+  // keepFlow: save() 내부에서 호출할 때 duplicateFlow를 유지하기 위함
+  const close = useCallback((keepFlow = false) => {
     stopLoop();
     setSelectedWord(null);
-  }, [stopLoop, setSelectedWord]);
+    if (!keepFlow) {
+      setDuplicateFlow(null);
+    }
+  }, [stopLoop, setSelectedWord, setDuplicateFlow]);
 
   const save = useCallback(() => {
     const trimmed = value.trim();
     const note = reviewNote.trim() || undefined;
+
+    // 변경 없으면 닫기만
     if (trimmed === originalWord && currentCorrection === undefined && !note) {
-      close();
+      close(false);
       return;
     }
+
+    // 저장 전에 현재 상태 스냅샷 (addCorrection 이전)
+    const currentCorrs = useReviewStore.getState().corrections;
+    const allSegs = useReviewStore.getState().segments;
+    const currentFlow = useReviewStore.getState().duplicateFlow;
+
+    // 수정 저장
     addCorrection({
       segmentIndex,
       wordIndex,
@@ -148,8 +157,60 @@ export default function CorrectionModal({
       corrected: trimmed || null,
       reviewNote: note,
     });
-    close(); // stopLoop → ws.pause() + setSelectedWord(null)
-    // 수정 저장 직후 다음 어절부터 오디오 재생
+
+    // ── 동일 오류 플로우 처리 ──────────────────────────────
+    let nextFlow = null;
+    let nextWord: { segmentIndex: number; wordIndex: number } | null = null;
+
+    if (currentFlow && isInFlow) {
+      // 이미 플로우 진행 중 → 현재 어절 제거 후 다음으로
+      const newPending = currentFlow.pending.filter(
+        (p) => !(p.segmentIndex === segmentIndex && p.wordIndex === wordIndex)
+      );
+      if (newPending.length > 0) {
+        nextFlow = { ...currentFlow, pending: newPending };
+        nextWord = newPending[0];
+      }
+    } else if (trimmed && trimmed !== originalWord && !currentFlow) {
+      // 첫 번째 수정 → 동일 단어 중복 오류 탐색
+      const pending: { segmentIndex: number; wordIndex: number }[] = [];
+      for (const seg of allSegs) {
+        for (let wi = 0; wi < seg.words.length; wi++) {
+          if (seg.index === segmentIndex && wi === wordIndex) continue;
+          const alreadyCorrected = currentCorrs.find(
+            (c) => c.segmentIndex === seg.index && c.wordIndex === wi
+          );
+          if (!alreadyCorrected && seg.words[wi] === originalWord) {
+            pending.push({ segmentIndex: seg.index, wordIndex: wi });
+          }
+        }
+      }
+      if (pending.length > 0) {
+        nextFlow = { originalWord, suggestedCorrection: trimmed, pending };
+        nextWord = pending[0];
+      }
+    }
+
+    // 패널 닫기 (keepFlow=true → duplicateFlow 유지해서 나중에 덮어씀)
+    close(nextFlow !== null);
+
+    if (nextFlow && nextWord) {
+      // 새 플로우 설정 + 다음 어절로 이동
+      setDuplicateFlow(nextFlow);
+      const nextSeg = allSegs.find((s) => s.index === nextWord!.segmentIndex);
+      const ws = wavesurferRef.current;
+      if (ws && nextSeg) {
+        const dur = ws.getDuration();
+        if (dur > 0) ws.seekTo(nextSeg.startTime / dur);
+      }
+      setTimeout(() => {
+        useReviewStore.getState().selectWord(nextWord!.segmentIndex, nextWord!.wordIndex);
+      }, 30);
+      setResumePosition(null);
+      return; // 자동 재생 생략
+    }
+
+    // ── 일반 저장: 다음 어절부터 자동 재생 ──────────────────
     const ws = wavesurferRef.current;
     if (ws) {
       const dur = ws.getDuration();
@@ -169,20 +230,45 @@ export default function CorrectionModal({
       }
     }
     setResumePosition(null);
-  }, [value, reviewNote, originalWord, currentCorrection, addCorrection, segmentIndex, wordIndex, close, segment, setResumePosition]);
+  }, [
+    value, reviewNote, originalWord, currentCorrection,
+    addCorrection, segmentIndex, wordIndex, close,
+    segment, setResumePosition, isInFlow, setDuplicateFlow,
+  ]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') { e.preventDefault(); save(); }
-    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
   };
 
   useEffect(() => {
     return () => { if (loopTimerRef.current) clearTimeout(loopTimerRef.current); };
   }, []);
 
+  // 플로우 진행 상황 표시
+  const flowTotal = duplicateFlow
+    ? duplicateFlow.pending.length + (isInFlow ? 0 : 0)
+    : 0;
+
   return (
     <div className="w-full mt-2 bg-red-50 border border-red-200 rounded-lg p-3" onClick={(e) => e.stopPropagation()}>
+
+      {/* 동일 오류 플로우 배너 */}
+      {isInFlow && duplicateFlow && (
+        <div className="flex items-center justify-between mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs">
+          <span className="text-amber-700 font-medium">
+            ⚡ &apos;{duplicateFlow.originalWord}&apos; 동일 오류 {duplicateFlow.pending.length}건 남음
+          </span>
+          <button
+            onClick={() => setDuplicateFlow(null)}
+            className="text-amber-500 hover:text-amber-700 text-[10px] ml-2"
+          >
+            흐름 취소
+          </button>
+        </div>
+      )}
+
       {/* 수정 입력 */}
       <div className="mb-2">
         <input
@@ -196,7 +282,7 @@ export default function CorrectionModal({
         />
       </div>
 
-      {/* 재검토 사유 (토글) */}
+      {/* 재검토 사유 */}
       {showReview && (
         <textarea
           ref={reviewRef}
@@ -205,7 +291,7 @@ export default function CorrectionModal({
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) return;
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
-            else if (e.key === 'Escape') { e.preventDefault(); close(); }
+            else if (e.key === 'Escape') { e.preventDefault(); close(false); }
           }}
           placeholder="재검토 사유 입력... (Enter로 저장)"
           rows={2}
@@ -213,7 +299,7 @@ export default function CorrectionModal({
         />
       )}
 
-      {/* 재생·반복·속도(로컬)·저장 — 한 줄 */}
+      {/* 재생·반복·속도·저장 */}
       <div className="flex items-center gap-1.5">
         <button
           onClick={playOnce}
@@ -225,9 +311,7 @@ export default function CorrectionModal({
         <button
           onClick={toggleLoop}
           className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-colors flex-shrink-0 ${
-            loopActive
-              ? 'bg-red-500 text-white'
-              : 'bg-red-100 hover:bg-red-200 text-red-700'
+            loopActive ? 'bg-red-500 text-white' : 'bg-red-100 hover:bg-red-200 text-red-700'
           }`}
           title="반복 재생"
         >
@@ -240,27 +324,18 @@ export default function CorrectionModal({
           반복
         </button>
 
-        {/* 로컬 배속 슬라이더 — 이 입력창의 재생·반복에만 적용 */}
         <input
-          type="range"
-          min={0.5}
-          max={2}
-          step={0.25}
-          value={localRate}
+          type="range" min={0.5} max={2} step={0.25} value={localRate}
           onChange={(e) => setLocalRate(Number(e.target.value))}
           className="w-14 h-1 accent-red-400 cursor-pointer"
           title={`구간 배속: ${localRate}x`}
         />
-        <span className="text-[10px] font-medium text-red-500 w-6 flex-shrink-0">
-          {localRate}x
-        </span>
+        <span className="text-[10px] font-medium text-red-500 w-6 flex-shrink-0">{localRate}x</span>
 
         <button
           onClick={() => setShowReview((v) => !v)}
           className={`ml-auto flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0 ${
-            showReview
-              ? 'bg-amber-500 text-white'
-              : 'bg-red-100 hover:bg-red-200 text-red-600'
+            showReview ? 'bg-amber-500 text-white' : 'bg-red-100 hover:bg-red-200 text-red-600'
           }`}
           title="재검토 사유 입력"
         >
@@ -274,7 +349,7 @@ export default function CorrectionModal({
           onClick={save}
           className="text-xs px-3 py-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors font-medium flex-shrink-0"
         >
-          저장
+          {isInFlow ? `저장 후 다음 →` : '저장'}
         </button>
       </div>
     </div>

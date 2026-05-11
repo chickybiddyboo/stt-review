@@ -70,6 +70,18 @@ export default function ReviewPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
+  // 드래그 선택: 마우스 버튼 해제 시 커밋
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const { isDragging } = useReviewStore.getState();
+      if (isDragging) {
+        useReviewStore.getState().commitDrag();
+      }
+    };
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => document.removeEventListener('mouseup', handleMouseUp);
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -77,6 +89,8 @@ export default function ReviewPage() {
 
       if (e.key === 'Escape') {
         if (selectedWord) { e.preventDefault(); setSelectedWord(null); }
+        const { isDragging, cancelDrag } = useReviewStore.getState();
+        if (isDragging) { e.preventDefault(); cancelDrag(); }
         return;
       }
       if (isInput) return;
