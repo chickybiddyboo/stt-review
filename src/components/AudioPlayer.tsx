@@ -90,14 +90,14 @@ export default function AudioPlayer() {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="bg-white border-t border-gray-200 px-4 pt-3 pb-3 select-none">
+    <div className="bg-white border-t border-gray-200 pt-3 pb-3 select-none">
       {/* WaveSurfer 컨테이너 — 오디오 재생 전용 */}
       <div ref={containerRef} style={{ height: 0, overflow: 'hidden' }} />
 
-      {/* 프로그레스 바 — 세로 12px, 가로 256px */}
+      {/* 행 1: 전체 너비 프로그레스 바 (패딩 없이 끝에서 끝) */}
       <div
-        className="relative bg-gray-200 rounded-full cursor-pointer mb-3 group"
-        style={{ height: 12, width: 256 }}
+        className="relative w-full bg-gray-200 cursor-pointer mb-3 group"
+        style={{ height: 12 }}
         onClick={handleSeek}
       >
         <div
@@ -110,10 +110,10 @@ export default function AudioPlayer() {
         />
       </div>
 
-      {/* 컨트롤 행: 재생 컨트롤(고정) + 배속(남은 공간 전부) */}
-      <div className="flex items-center gap-3">
+      {/* 행 2: 재생 컨트롤 + 단축 버튼 + 슬라이더 */}
+      <div className="flex items-center gap-3 px-4">
 
-        {/* 재생 컨트롤 — 고정 너비 */}
+        {/* 재생 컨트롤 */}
         <button
           onClick={rewind5}
           className="text-xs px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors flex-shrink-0"
@@ -142,34 +142,16 @@ export default function AudioPlayer() {
           {secondsToDisplayTime(currentTime)} / {secondsToDisplayTime(duration)}
         </span>
 
-        {/* 배속 조절 — 고정 크기 340×52px */}
-        <div className="ml-auto flex-shrink-0 flex flex-col justify-between" style={{ width: 340, height: 52 }}>
-
-          {/* 슬라이더 행 */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 flex-shrink-0">배속</span>
-            <input
-              type="range"
-              min={0.25}
-              max={3.0}
-              step={0.05}
-              value={playbackRate}
-              onChange={(e) => setPlaybackRate(Number(e.target.value))}
-              className="flex-1 h-2 accent-blue-500 cursor-pointer"
-            />
-            <span className="text-sm font-semibold text-blue-600 w-11 text-right tabular-nums flex-shrink-0">
-              {playbackRate.toFixed(2)}x
-            </span>
-          </div>
-
-          {/* 단축 버튼 행 — 각 48×20px, 간격 4px */}
+        {/* 단축 버튼 + 슬라이더 — ml-auto */}
+        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          {/* 배속 단축 버튼 — 각 48×20px, 간격 4px */}
           <div className="flex items-center" style={{ gap: 4 }}>
             {[1.0, 1.25, 1.5, 2.0, 3.0].map((v) => (
               <button
                 key={v}
                 onClick={() => setPlaybackRate(v)}
-                style={{ width: 48, height: 20 }}
-                className={`flex-shrink-0 text-xs rounded transition-colors ${
+                style={{ width: 48, height: 20, flexShrink: 0 }}
+                className={`text-xs rounded transition-colors ${
                   playbackRate === v
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
@@ -179,6 +161,20 @@ export default function AudioPlayer() {
               </button>
             ))}
           </div>
+
+          {/* 슬라이더 */}
+          <input
+            type="range"
+            min={0.25}
+            max={3.0}
+            step={0.05}
+            value={playbackRate}
+            onChange={(e) => setPlaybackRate(Number(e.target.value))}
+            className="w-24 h-2 accent-blue-500 cursor-pointer"
+          />
+          <span className="text-sm font-semibold text-blue-600 w-11 text-right tabular-nums flex-shrink-0">
+            {playbackRate.toFixed(2)}x
+          </span>
         </div>
       </div>
     </div>

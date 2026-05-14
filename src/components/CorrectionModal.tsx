@@ -170,6 +170,30 @@ export default function CorrectionModal({
       if (newPending.length > 0) {
         nextFlow = { ...currentFlow, pending: newPending };
         nextWord = newPending[0];
+      } else {
+        // ── 플로우 완료: 첫 번째 수정 어절 직후로 복귀 + 재생 ──
+        close(false);
+        const originSeg = allSegs.find((s) => s.index === currentFlow.originSegmentIndex);
+        const ws = wavesurferRef.current;
+        if (ws && originSeg) {
+          const dur = ws.getDuration();
+          if (dur > 0) {
+            const totalWords = originSeg.words.length;
+            const nextIdx = currentFlow.originWordIndex + 1;
+            let nextStartTime: number;
+            if (nextIdx < totalWords) {
+              nextStartTime = originSeg.wordTimings
+                ? originSeg.wordTimings[nextIdx].startTime
+                : estimateWordStartTime(originSeg.startTime, originSeg.endTime, nextIdx, totalWords);
+            } else {
+              nextStartTime = originSeg.endTime;
+            }
+            ws.seekTo(nextStartTime / dur);
+            ws.play();
+          }
+        }
+        setResumePosition(null);
+        return;
       }
     } else if (trimmed && trimmed !== originalWord && !currentFlow) {
       // 첫 번째 수정 → 동일 단어 중복 오류 탐색
@@ -186,7 +210,13 @@ export default function CorrectionModal({
         }
       }
       if (pending.length > 0) {
-        nextFlow = { originalWord, suggestedCorrection: trimmed, pending };
+        nextFlow = {
+          originalWord,
+          suggestedCorrection: trimmed,
+          pending,
+          originSegmentIndex: segmentIndex,
+          originWordIndex: wordIndex,
+        };
         nextWord = pending[0];
       }
     }
@@ -246,26 +276,15 @@ export default function CorrectionModal({
     return () => { if (loopTimerRef.current) clearTimeout(loopTimerRef.current); };
   }, []);
 
-  // 플로우 진행 상황 표시
-  const flowTotal = duplicateFlow
-    ? duplicateFlow.pending.length + (isInFlow ? 0 : 0)
-    : 0;
-
   return (
     <div className="w-full mt-2 bg-red-50 border border-red-200 rounded-lg p-3" onClick={(e) => e.stopPropagation()}>
 
-      {/* 동일 오류 플로우 배너 */}
+      {/* 동일 오류 플로우 배너 (ESC로 취소) */}
       {isInFlow && duplicateFlow && (
-        <div className="flex items-center justify-between mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs">
+        <div className="mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs">
           <span className="text-amber-700 font-medium">
-            ⚡ &apos;{duplicateFlow.originalWord}&apos; 동일 오류 {duplicateFlow.pending.length}건 남음
+            ⚡ &apos;{duplicateFlow.originalWord}&apos; 동일 오류 {duplicateFlow.pending.length}건 남음 · ESC로 취소
           </span>
-          <button
-            onClick={() => setDuplicateFlow(null)}
-            className="text-amber-500 hover:text-amber-700 text-[10px] ml-2"
-          >
-            흐름 취소
-          </button>
         </div>
       )}
 
@@ -349,7 +368,11 @@ export default function CorrectionModal({
           onClick={save}
           className="text-xs px-3 py-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors font-medium flex-shrink-0"
         >
-          {isInFlow ? `저장 후 다음 →` : '저장'}
+          {isInFlow
+            ? duplicateFlow!.pending.length === 1
+              ? '첫 오류로 돌아가기 ↩'
+              : '다음 동일 오류로 이동 →'
+            : '저장'}
         </button>
       </div>
     </div>

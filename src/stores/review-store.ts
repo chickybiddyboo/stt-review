@@ -9,6 +9,9 @@ export interface DuplicateFlow {
   suggestedCorrection: string | null;
   /** 아직 수정되지 않은 동일 오류 위치 목록 */
   pending: { segmentIndex: number; wordIndex: number }[];
+  /** 플로우를 시작한 첫 번째 수정 어절 위치 */
+  originSegmentIndex: number;
+  originWordIndex: number;
 }
 
 interface ReviewStore {

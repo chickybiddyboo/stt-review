@@ -89,7 +89,6 @@ export default function Word({
     }
     cancelDrag();
     setActivePanel('script');
-    // 클릭 시 수정 패널만 열림 — 오디오 이동 없음, 오류 등록은 저장 시점에만
     selectWord(segmentIndex, wordIndex);
   };
 
@@ -106,9 +105,9 @@ export default function Word({
   } else if (isSelected) {
     boxStyle = 'bg-red-200 text-red-800';
   } else if (isInDragRange) {
-    boxStyle = 'bg-orange-200 text-orange-800'; // 드래그 선택 중
+    boxStyle = 'bg-orange-200 text-orange-800';
   } else if (isPendingDuplicate) {
-    boxStyle = 'bg-amber-200 text-amber-800 ring-1 ring-amber-400'; // 동일 오류 대기
+    boxStyle = 'bg-amber-200 text-amber-800 ring-1 ring-amber-400';
   } else if (isCorrected) {
     boxStyle = 'bg-green-200 text-green-800';
   } else if (isDeleted) {
